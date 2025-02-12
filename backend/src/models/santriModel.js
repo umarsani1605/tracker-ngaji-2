@@ -24,12 +24,18 @@ class SantriModel {
   // Menambah data santri baru
   static async createSantri(santriData) {
     try {
-      const { name, gender } = santriData;
-      const [result] = await db.query('INSERT INTO santri (name, gender) VALUES (?, ?)', [name, gender]);
+      const { name, gender, angkatan, jurusan, role } = santriData;
+      const [result] = await db.query(
+        'INSERT INTO santri (name, gender, angkatan, jurusan, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [name, gender, angkatan, jurusan, role, new Date(), new Date()]
+      );
       return {
         id: result.insertId,
         name,
         gender,
+        angkatan,
+        jurusan,
+        role,
       };
     } catch (error) {
       throw error;
@@ -39,8 +45,16 @@ class SantriModel {
   // Mengupdate data santri
   static async updateSantri(id, santriData) {
     try {
-      const { name, gender } = santriData;
-      const [result] = await db.query('UPDATE santri SET name = ?, gender = ? WHERE id = ?', [name, gender, id]);
+      const { name, gender, angkatan, jurusan, role } = santriData;
+      const [result] = await db.query('UPDATE santri SET name = ?, gender = ?, angkatan = ?, jurusan = ?, role = ?, updated_at = ? WHERE id = ?', [
+        name,
+        gender,
+        angkatan,
+        jurusan,
+        role,
+        new Date(),
+        id,
+      ]);
 
       if (result.affectedRows === 0) {
         throw new Error('Santri tidak ditemukan');
@@ -50,6 +64,9 @@ class SantriModel {
         id,
         name,
         gender,
+        angkatan,
+        jurusan,
+        role,
       };
     } catch (error) {
       throw error;

@@ -65,14 +65,6 @@ class SantriController {
         });
       }
 
-      // Validasi panjang nama
-      if (name.length < 3) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Nama harus minimal 3 karakter',
-        });
-      }
-
       const newSantri = await SantriModel.createSantri({ name, gender, angkatan, jurusan, role });
 
       res.status(201).json({
