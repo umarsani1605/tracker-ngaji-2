@@ -140,4 +140,35 @@ router.put('/:id', SubjectController.updateSubject);
  */
 router.delete('/:id', SubjectController.deleteSubject);
 
+/**
+ * @swagger
+ * /subjects/category/{category_id}:
+ *   get:
+ *     summary: Mengambil daftar mata pelajaran berdasarkan kategori
+ *     tags: [Subjects]
+ *     parameters:
+ *       - in: path
+ *         name: category_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kategori
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data mata pelajaran
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Subject'
+ */
+router.get('/category/:category_id', SubjectController.getSubjectByCategory);
+
 export default router;

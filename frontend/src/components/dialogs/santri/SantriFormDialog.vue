@@ -14,7 +14,6 @@ const submitted = ref(false);
 const onSave = () => {
     submitted.value = true;
 
-    // Validasi semua field required
     if (!formData.value.name || !formData.value.angkatan || !formData.value.jurusan || !formData.value.gender || !formData.value.role) {
         return;
     }

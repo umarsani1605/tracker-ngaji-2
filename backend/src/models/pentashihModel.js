@@ -1,25 +1,25 @@
 import { db } from '../config/database.js';
+import logger from '../utils/logger.js';
 
 class PentashihModel {
   // Mengambil semua data pentashih beserta data santri yang dibimbing
   static async getAllPentashih() {
     try {
       const [rows] = await db.query(`
-        SELECT p.*, s.name as pentashih_name 
+        SELECT DISTINCT p.id_pentashih, s.name as pentashih_name 
         FROM pentashih p
-        LEFT JOIN santri s ON p.id_pentashih = s.id
+        JOIN santri s ON p.id_pentashih = s.id
       `);
 
-      // Untuk setiap pentashih, ambil daftar santri yang dibimbing
       for (let pentashih of rows) {
         const [santriList] = await db.query(
           `
           SELECT s.* 
           FROM santri s
-          JOIN pentashih ps ON s.id = ps.id_santri
-          WHERE ps.id_pentashih = ?
+          JOIN pentashih p ON s.id = p.id_santri 
+          WHERE p.id_pentashih = ?
         `,
-          [pentashih.id]
+          [pentashih.id_pentashih]
         );
 
         pentashih.santri_list = santriList;
@@ -36,10 +36,10 @@ class PentashihModel {
     try {
       const [rows] = await db.query(
         `
-        SELECT p.*, s.name as pentashih_name 
+        SELECT DISTINCT p.id_pentashih, s.name as pentashih_name 
         FROM pentashih p
-        LEFT JOIN santri s ON p.id_pentashih = s.id
-        WHERE p.id = ?
+        JOIN santri s ON p.id_pentashih = s.id
+        WHERE p.id_pentashih = ?
       `,
         [id]
       );
@@ -49,8 +49,8 @@ class PentashihModel {
           `
           SELECT s.* 
           FROM santri s
-          JOIN pentashih ps ON s.id = ps.id_santri
-          WHERE ps.id_pentashih = ?
+          JOIN pentashih p ON s.id = p.id_santri
+          WHERE p.id_pentashih = ?
         `,
           [id]
         );
@@ -69,17 +69,22 @@ class PentashihModel {
     try {
       const { id_pentashih, santri_ids } = pentashihData;
 
-      // Insert ke tabel pentashih
-      const [result] = await db.query('INSERT INTO pentashih (id_pentashih, created_at, updated_at) VALUES (?, ?, ?)', [
-        id_pentashih,
-        new Date(),
-        new Date(),
-      ]);
+      let result;
 
       // Insert ke tabel pentashih untuk setiap santri
       if (santri_ids && santri_ids.length > 0) {
-        const values = santri_ids.map((id_santri) => [result.insertId, id_santri]);
-        await db.query('INSERT INTO pentashih (id_pentashih, id_santri) VALUES ? WHERE id_pentashih = ?', [values, id_pentashih]);
+        // Cek duplikasi id_santri
+        const [existingData] = await db.query('SELECT id_santri FROM pentashih WHERE id_santri IN (?)', [santri_ids]);
+
+        const existingSantriIds = existingData.map((row) => row.id_santri);
+        const uniqueSantriIds = santri_ids.filter((id) => !existingSantriIds.includes(id));
+
+        if (uniqueSantriIds.length > 0) {
+          const values = uniqueSantriIds.map((id_santri) => [id_pentashih, id_santri]);
+          [result] = await db.query('INSERT INTO pentashih (id_pentashih, id_santri) VALUES ?', [values]);
+        } else {
+          throw new Error('Semua santri yang dipilih sudah memiliki pentashih');
+        }
       }
 
       return {
@@ -93,29 +98,33 @@ class PentashihModel {
   }
 
   // Mengupdate data pentashih
-  static async updatePentashih(id, pentashihData) {
+  static async updatePentashih(id_pentashih, santri_ids) {
     try {
-      const { id_pentashih, santri_ids } = pentashihData;
+      logger.info('id_pentashih: ' + id_pentashih);
+      logger.info('santri_ids: ' + santri_ids);
 
-      // Update tabel pentashih
-      const [result] = await db.query('UPDATE pentashih SET id_pentashih = ?, updated_at = ? WHERE id = ?', [id_pentashih, new Date(), id]);
-
-      if (result.affectedRows === 0) {
-        throw new Error('Pentashih tidak ditemukan');
+      if (!id_pentashih) {
+        throw new Error('ID Pentashih harus diisi');
       }
 
-      // Update tabel pentashih
-      // Hapus data lama
-      await db.query('DELETE FROM pentashih WHERE id_pentashih = ?', [id]);
+      if (!santri_ids || santri_ids.length === 0) {
+        throw new Error('Daftar Santri harus diisi');
+      }
 
-      // Insert data baru
+      await db.query('DELETE FROM pentashih WHERE id_pentashih = ?', [id_pentashih]);
+
       if (santri_ids && santri_ids.length > 0) {
-        const values = santri_ids.map((id_santri) => [id, id_santri]);
-        await db.query('INSERT INTO pentashih (id_pentashih, id_santri) VALUES ?', [values]);
+        const values = santri_ids.map((id_santri) => [id_pentashih, id_santri, new Date(), new Date()]);
+        const [result] = await db.query('INSERT INTO pentashih (id_pentashih, id_santri, updated_at, created_at) VALUES ?', [values]);
+
+        return {
+          id: result.insertId,
+          id_pentashih,
+          santri_ids,
+        };
       }
 
       return {
-        id,
         id_pentashih,
         santri_ids,
       };
@@ -127,11 +136,8 @@ class PentashihModel {
   // Menghapus data pentashih
   static async deletePentashih(id) {
     try {
-      // Hapus data dari tabel pentashih terlebih dahulu
-      await db.query('DELETE FROM pentashih WHERE id_pentashih = ?', [id]);
-
       // Kemudian hapus dari tabel pentashih
-      const [result] = await db.query('DELETE FROM pentashih WHERE id = ?', [id]);
+      const [result] = await db.query('DELETE FROM pentashih WHERE id_pentashih = ?', [id]);
 
       if (result.affectedRows === 0) {
         throw new Error('Pentashih tidak ditemukan');

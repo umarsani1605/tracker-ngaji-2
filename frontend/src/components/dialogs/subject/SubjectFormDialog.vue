@@ -1,0 +1,80 @@
+<script setup>
+import { ref, inject, onMounted } from 'vue';
+import { CategoryService } from '@/services/categoryService';
+
+const dialogRef = inject('dialogRef');
+const emit = defineEmits(['cancel', 'save']);
+
+const subject = dialogRef.value.data;
+const formData = ref({
+    ...subject,
+    has_hafalan: subject.has_hafalan || false,
+    has_setoran: subject.has_setoran || false
+});
+const submitted = ref(false);
+const categories = ref([]);
+
+const fetchCategories = async () => {
+    try {
+        const response = await CategoryService.getAll();
+        categories.value = response.data;
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+    }
+};
+
+const onSave = () => {
+    submitted.value = true;
+
+    // Validasi semua field required
+    if (!formData.value.name || !formData.value.id_category) {
+        return;
+    }
+    emit('save', formData.value);
+    dialogRef.value.close();
+};
+
+const onCancel = () => {
+    emit('cancel');
+    dialogRef.value.close();
+};
+
+onMounted(() => {
+    fetchCategories();
+});
+</script>
+
+<template>
+    <div class="p-fluid">
+        <div class="field flex flex-col gap-2">
+            <label for="name">Nama <span class="text-red-500">*</span></label>
+            <InputText id="name" v-model="formData.name" required autofocus :class="{ 'p-invalid': submitted && !formData.name }" />
+        </div>
+
+        <div class="field flex flex-col gap-2">
+            <label for="category">Kategori <span class="text-red-500">*</span></label>
+            <Dropdown id="category" v-model="formData.id_category" :options="categories" optionLabel="name" optionValue="id" placeholder="Pilih Kategori" :class="{ 'p-invalid': submitted && !formData.id_category }" />
+        </div>
+
+        <div class="field flex items-center gap-2">
+            <Checkbox id="has_hafalan" v-model="formData.has_hafalan" :binary="true" />
+            <label for="has_hafalan">Hafalan</label>
+        </div>
+
+        <div class="field flex items-center gap-2">
+            <Checkbox id="has_setoran" v-model="formData.has_setoran" :binary="true" />
+            <label for="has_setoran">Setoran</label>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4">
+            <Button label="Cancel" icon="pi pi-times" outlined @click="onCancel" />
+            <Button label="Save" icon="pi pi-check" @click="onSave" />
+        </div>
+    </div>
+</template>
+
+<style scoped>
+.field {
+    margin-bottom: 1.5rem;
+}
+</style>

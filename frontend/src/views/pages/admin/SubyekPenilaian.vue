@@ -1,173 +1,238 @@
 <script setup>
-import { FilterMatchMode } from '@primevue/core/api';
-import { useToast } from 'primevue/usetoast';
-import { onBeforeMount, onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
+import { useDialog } from 'primevue/usedialog';
+import { SubjectService } from '@/services/subjectService';
+import SubjectFormDialog from '@/components/dialogs/subject/SubjectFormDialog.vue';
+import DeleteDialog from '@/components/dialogs/shared/DeleteDialog.vue';
 
-// import { supabase } from '@/utils/supabase';
+const dialog = useDialog();
+const dt = ref();
+const daftarSubject = ref([]);
+const loading = ref(false);
+const error = ref(null);
+const filters = ref({
+    global: { value: null, matchMode: 'contains' },
+    name: { value: null, matchMode: 'contains' }
+});
+const sortField = ref(null);
+const sortOrder = ref(null);
 
-const toast = useToast();
-
-const daftarSubyek = ref([]);
-
-const santriDialog = ref(false);
-const deleteSantriDialog = ref(false);
-const santri = ref({});
-const dt = ref(null);
-const filters = ref({});
-const submitted = ref(false);
-
-const angkatan = ref([{ value: '2023' }, { value: '2022' }, { value: '2021' }, { value: '2020' }, { value: '2019' }, { value: '2018' }]);
-
-const getBadgeSeverity = (grade) => {
-    switch (grade.toLowerCase()) {
-        case 'tercapai':
-            return 'success';
-        case 'tidak tercapai':
-            return 'danger';
-        default:
-            return 'info';
-    }
-};
-
-onBeforeMount(() => {
-    initFilters();
+const hasActiveFilters = computed(() => {
+    return Object.keys(filters.value).some((key) => filters.value[key].value !== null && filters.value[key].value !== '');
 });
 
-onMounted(() => {});
+const hasActiveSort = computed(() => {
+    return sortField.value !== null && sortOrder.value !== null;
+});
 
-const openNew = () => {
-    santri.value = {};
-    submitted.value = false;
-    santriDialog.value = true;
+const showResetButton = computed(() => {
+    return hasActiveFilters.value || hasActiveSort.value;
+});
+
+const clearTable = async () => {
+    sortField.value = null;
+    sortOrder.value = null;
+
+    Object.keys(filters.value).forEach((key) => {
+        filters.value[key].value = null;
+    });
 };
 
-const hideDialog = () => {
-    santriDialog.value = false;
-    submitted.value = false;
+const fetchDaftarSubject = async () => {
+    loading.value = true;
+    try {
+        const data = await SubjectService.getAll();
+        daftarSubject.value = data.data;
+    } catch (error) {
+        console.error('Fetch Error: Gagal mengambil data subject, ', error);
+        error.value = 'Fetch Error: Gagal mengambil data subject';
+    } finally {
+        loading.value = false;
+    }
 };
 
-const saveSantri = async () => {
-    submitted.value = true;
-    if (santri.value.name && santri.value.name.trim()) {
-        if (santri.value.code) {
-            // update
-            daftarSantri.value[findIndexById(santri.value.id)] = santri.value;
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Updated', life: 3000 });
+const addHandler = () => {
+    dialog.open(SubjectFormDialog, {
+        props: {
+            header: 'Tambah Mata Pelajaran',
+            style: {
+                minWidth: '32rem'
+            },
+            modal: true
+        },
+        data: {},
+        emits: {
+            onSave: (data) => {
+                saveData(data);
+            },
+            onCancel: () => {}
+        }
+    });
+};
+
+const editHandler = (subject) => {
+    dialog.open(SubjectFormDialog, {
+        props: {
+            header: 'Edit Mata Pelajaran',
+            style: {
+                minWidth: '32rem'
+            },
+            modal: true
+        },
+        data: { ...subject },
+        emits: {
+            onSave: (data) => {
+                saveData(data);
+            },
+            onCancel: () => {}
+        }
+    });
+};
+
+const saveData = async (data) => {
+    try {
+        if (data.id) {
+            await SubjectService.update(data.id, data);
         } else {
-            santri.value.angkatan = santri.value.angkatan.value;
-            santri.value.code = createId();
+            await SubjectService.create(data);
+        }
+        await fetchDaftarSubject();
+    } catch (error) {
+        console.error('Error saving subject: ', error);
+    }
+};
 
-            console.log(santri.value);
-
-            const newSantri = await supabase.from('santri').insert([santri.value]).select();
-
-            let grades = [];
-
-            for (var i = 1; i <= 13; i++) {
-                var data = {
-                    id_santri: newSantri.data[0].id,
-                    id_subject: i,
-                    hafalan: 'Tidak Tercapai',
-                    setoran: 'Tidak Tercapai'
-                };
-                grades.push(data);
+const deleteHandler = (subject) => {
+    dialog.open(DeleteDialog, {
+        props: {
+            header: 'Hapus Mata Pelajaran',
+            modal: true
+        },
+        data: subject,
+        onClose: (confirmed) => {
+            if (confirmed) {
+                deleteData(subject.id);
             }
-
-            const newGrades = await supabase.from('grade').insert(grades).select();
-
-            console.log(newGrades.value);
-
-            location.reload();
-
-            // daftarSantri.value.push(santri.value);
-            // toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Created', life: 3000 });
         }
-        santriDialog.value = false;
-        santri.value = {};
+    });
+};
+
+const deleteData = async (id) => {
+    try {
+        await SubjectService.delete(id);
+        await fetchDaftarSubject();
+    } catch (error) {
+        console.error('Error deleting subject: ', error);
     }
 };
 
-const editSantri = (editSantri) => {
-    santri.value = { ...editSantri };
-    santriDialog.value = true;
-};
-
-const confirmDeleteSantri = (editSantri) => {
-    santri.value = editSantri;
-    deletesantriDialog.value = true;
-};
-
-const deleteSantri = () => {
-    daftarSantri.value = daftarSantri.value.filter((val) => val.id !== santri.value.id);
-    deleteSantriDialog.value = false;
-    santri.value = {};
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Deleted', life: 3000 });
-};
-
-const findIndexById = (id) => {
-    let index = -1;
-    for (let i = 0; i < daftarSantri.value.length; i++) {
-        if (daftarSantri.value[i].id === id) {
-            index = i;
-            break;
-        }
-    }
-    return index;
-};
-
-const createId = () => {
-    const upperCaseLetter = String.fromCharCode(Math.floor(Math.random() * 26) + 65);
-
-    const firstDigit = Math.floor(Math.random() * 10);
-    const secondDigit = Math.floor(Math.random() * 10);
-
-    return upperCaseLetter + firstDigit + secondDigit;
-};
-
-const exportCSV = () => {
-    dt.value.exportCSV();
-};
-
-const initFilters = () => {
-    filters.value = {
-        global: { value: null, matchMode: FilterMatchMode.CONTAINS }
-    };
-};
+onMounted(() => {
+    fetchDaftarSubject();
+});
 </script>
+
 <template>
     <div class="card border-slate-200 border pt-4">
-        <div class="flex justify-between">
-            <div class="flex flex-column justify-center items-center">
-                <h3 class="text-2xl font-bold">Daftar Santri</h3>
-            </div>
-            <Toolbar class="toolbar mb-4 !border-none">
-                <template v-slot:start> </template>
-                <template v-slot:end>
+        <div class="flex flex-col gap-2 pt-4">
+            <h3 class="text-2xl font-bold">Daftar Mata Pelajaran</h3>
+            <Toolbar class="toolbar !px-0 !border-none">
+                <template #start>
+                    <Button v-if="showResetButton" type="button" icon="pi pi-filter-slash" label="Bersihkan" outlined @click="clearTable()" />
+                </template>
+                <template #end>
                     <div class="flex gap-4">
-                        <IconField iconPosition="left" class="block mt-2 md:mt-0">
+                        <IconField iconPosition="left" class="block w-80 mt-2 md:mt-0">
                             <InputIcon class="pi pi-search" />
-                            <InputText class="w-full sm:w-auto" v-model="filters['global'].value" placeholder="Cari santri..." />
+                            <InputText v-model="filters['global'].value" placeholder="Cari mata pelajaran..." class="w-full" />
                         </IconField>
-                        <Button label="Export" icon="pi pi-upload" severity="primary" @click="exportCSV($event)" />
-                        <Button label="Baru" icon="pi pi-plus" class="mr-2" severity="primary" @click="openNew" />
+                        <Button label="Tambah Mata Pelajaran" icon="pi pi-plus" severity="primary" @click="addHandler" />
                     </div>
                 </template>
             </Toolbar>
         </div>
 
-        <DataTable ref="dt" :value="daftarSubyek" dataKey="santri.id" :filters="filters" showGridlines>
-            <Column field="nama" header="Nama"></Column>
-            <Column field="kategori" header="Kategori"></Column>
-            <Column field="hafalan" header="Hafalan"></Column>
-            <Column field="setoran" header="Setoran"></Column>
-            <Column headerStyle="min-width:10rem;">
+        <!-- Loading State -->
+        <div v-if="loading" class="p-4">Loading...</div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="p-4 text-red-500">
+            {{ error }}
+        </div>
+
+        <!-- Data Table -->
+        <DataTable
+            v-else
+            ref="dt"
+            :value="daftarSubject"
+            :filters="filters"
+            removableSort
+            dataKey="id"
+            showGridlines
+            stripedRows
+            :globalFilterFields="['name', 'category_name']"
+            tableStyle="min-width: 50rem"
+            filterDisplay="menu"
+            class="p-datatable-hoverable"
+        >
+            <Column field="id" header="No." style="width: 2rem">
+                <template #body="{ data }">
+                    {{ data.id }}
+                </template>
+            </Column>
+
+            <Column field="name" header="Nama" sortable style="min-width: 12rem">
+                <template #body="{ data }">
+                    {{ data.name }}
+                </template>
+            </Column>
+
+            <Column field="category_name" header="Kategori" sortable style="min-width: 12rem">
+                <template #body="{ data }">
+                    {{ data.category_name }}
+                </template>
+            </Column>
+
+            <Column field="has_hafalan" header="Hafalan" style="min-width: 8rem">
+                <template #body="{ data }">
+                    <i :class="data.has_hafalan ? 'pi pi-check-circle text-green-500' : 'pi pi-times-circle text-red-500'"></i>
+                </template>
+            </Column>
+
+            <Column field="has_setoran" header="Setoran" style="min-width: 8rem">
+                <template #body="{ data }">
+                    <i :class="data.has_setoran ? 'pi pi-check-circle text-green-500' : 'pi pi-times-circle text-red-500'"></i>
+                </template>
+            </Column>
+
+            <Column style="width: 8rem">
                 <template #body="slotProps">
-                    <Button icon="pi pi-pencil" class="mr-2" severity="success" rounded @click="editSantri(slotProps.data)" />
-                    <Button icon="pi pi-trash" class="mt-2" severity="warning" rounded @click="confirmDeleteSantri(slotProps.data)" />
+                    <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editHandler(slotProps.data)" />
+                    <Button icon="pi pi-trash" outlined rounded severity="danger" @click="deleteHandler(slotProps.data)" />
                 </template>
             </Column>
         </DataTable>
+
+        <DynamicDialog />
     </div>
 </template>
 
-<style></style>
+<style>
+.p-datatable-thead .p-datatable-column-title {
+    font-weight: 800;
+    margin-inline-end: auto;
+}
+.p-datatable-thead .p-datatable-column-title + span {
+    display: inline-flex;
+}
+.p-datatable-thead .p-datatable-popover-filter {
+    margin-inline-start: 0;
+}
+.p-datatable.p-datatable-hoverable .p-datatable-tbody > tr:not(.p-highlight):hover {
+    background: #f4f4f4;
+    color: #495057;
+}
+
+.p-datatable.p-datatable-hoverable .p-datatable-tbody > tr {
+    transition: background-color 0.2s;
+}
+</style>

@@ -5,9 +5,9 @@ export const useSantriStore = defineStore('santri', {
     state: () => ({
         allAngkatanList: ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018'],
         genderList: ['laki-laki', 'perempuan'],
+        roleList: ['admin', 'pentashih', 'santri'],
         angkatanList: [],
         jurusanList: [],
-        roleList: [],
         loading: false,
         error: null
     }),
@@ -33,9 +33,6 @@ export const useSantriStore = defineStore('santri', {
 
                 const uniqueJurusan = new Set(santriList.map((santri) => santri.jurusan));
                 this.jurusanList = Array.from(uniqueJurusan).sort();
-
-                const uniqueRole = new Set(santriList.map((santri) => santri.role));
-                this.roleList = Array.from(uniqueRole).sort();
             } catch (error) {
                 this.error = 'Store Error: Gagal mengambil data master';
                 console.error('Store Error: Gagal mengambil data master, ', error);

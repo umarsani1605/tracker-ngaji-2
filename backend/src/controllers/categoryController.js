@@ -8,7 +8,10 @@ class CategoryController {
 
       res.status(200).json({
         status: 'success',
-        data: category,
+        data: category.map((item, index) => ({
+          id: index + 1,
+          ...item,
+        })),
       });
     } catch (error) {
       res.status(500).json({

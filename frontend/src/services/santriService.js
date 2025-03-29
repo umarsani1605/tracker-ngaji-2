@@ -2,14 +2,18 @@ import api from '@/config/axios';
 import { useSantriStore } from '@/stores/santriStore';
 
 export class SantriService {
-    // Mengambil semua data santri
-    static async getAll() {
+    // Mengambil semua data santri dengan filter
+    static async getAll(filters = {}) {
         try {
-            const response = await api.get('/santri');
+            // Buat query string dari filter
+            const params = new URLSearchParams();
+            if (filters.gender) params.append('gender', filters.gender);
+            if (filters.assigned !== undefined) params.append('assigned', filters.assigned);
+            if (filters.role) params.append('role', filters.role);
+
+            const response = await api.get(`/santri${params.toString() ? `?${params.toString()}` : ''}`);
             const santriStore = useSantriStore();
-
             santriStore.setAllData(response.data.data);
-
             return response.data;
         } catch (error) {
             console.error('Service Error: Gagal mengambil data santri:', error);

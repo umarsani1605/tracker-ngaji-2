@@ -37,15 +37,22 @@ const router = express.Router();
  *     tags: [Santri]
  *     parameters:
  *       - in: query
- *         name: page
+ *         name: gender
  *         schema:
- *           type: integer
- *         description: Nomor halaman untuk pagination
+ *           type: string
+ *           enum: [L, P]
+ *         description: Filter berdasarkan jenis kelamin (L/P)
  *       - in: query
- *         name: limit
+ *         name: assigned
  *         schema:
- *           type: integer
- *         description: Jumlah data per halaman
+ *           type: boolean
+ *         description: Filter berdasarkan status pentashih (true=sudah punya pentashih, false=belum punya pentashih)
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [santri, pentashih]
+ *         description: Filter berdasarkan role
  *     responses:
  *       200:
  *         description: Berhasil mengambil data santri

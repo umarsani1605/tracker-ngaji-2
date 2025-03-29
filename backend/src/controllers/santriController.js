@@ -1,19 +1,28 @@
 import SantriModel from '../models/santriModel.js';
+import logger from '../utils/logger.js';
 
 class SantriController {
-  // Get all santri dengan pagination dan search
+  // Get all santri dengan filter gender, assigned, dan role
   static async getAllSantri(req, res) {
     try {
-      const santri = await SantriModel.getAllSantri();
+      const { gender, assigned, role } = req.query;
+      logger.info(`Mengambil data santri dengan filter - gender: ${gender || 'semua'}, assigned: ${assigned || 'semua'}, role: ${role || 'semua'}`);
 
+      const santri = await SantriModel.getAllSantri(gender, assigned, role);
+
+      logger.info(`Berhasil mengambil ${santri.length} data santri`);
       res.status(200).json({
         status: 'success',
-        data: santri,
+        data: santri.map((item, index) => ({
+          index: index + 1,
+          ...item,
+        })),
       });
     } catch (error) {
+      logger.error('Controller Error: Gagal mengambil data santri:', error);
       res.status(500).json({
         status: 'error',
-        message: error.message,
+        message: 'Controller Error: ' + error.message,
       });
     }
   }

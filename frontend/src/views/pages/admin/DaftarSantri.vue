@@ -12,8 +12,6 @@ const dt = ref();
 const daftarSantri = ref([]);
 const loading = ref(false);
 const error = ref(null);
-const santriDialog = ref(false);
-const selectedSantri = ref({});
 const filters = ref({
     global: { value: null, matchMode: 'contains' },
     name: { value: null, matchMode: 'contains' },
@@ -61,7 +59,7 @@ const fetchDaftarSantri = async () => {
     }
 };
 
-const addSantri = () => {
+const addHandler = () => {
     dialog.open(SantriFormDialog, {
         props: {
             header: 'Tambah Santri',
@@ -71,14 +69,16 @@ const addSantri = () => {
             modal: true
         },
         data: {},
-        onSave: (data) => {
-            saveSantri(data);
-        },
-        onCancel: () => {}
+        emits: {
+            onSave: (data) => {
+                saveData(data);
+            },
+            onCancel: () => {}
+        }
     });
 };
 
-const editSantri = (santri) => {
+const editHandler = (santri) => {
     dialog.open(SantriFormDialog, {
         props: {
             header: 'Edit Santri',
@@ -90,29 +90,31 @@ const editSantri = (santri) => {
         data: { ...santri },
         emits: {
             onSave: (data) => {
-                saveSantri(data);
+                saveData(data);
             },
             onCancel: () => {}
         }
     });
 };
 
-const saveSantri = async (data) => {
+const saveData = async (data) => {
     try {
         if (data.id) {
+            console.log('masuk update, data', data);
+
             await SantriService.update(data.id, data);
         } else {
+            console.log('masuk create, data', data);
+
             await SantriService.create(data);
         }
         await fetchDaftarSantri();
-        santriDialog.value = false;
-        selectedSantri.value = {};
     } catch (error) {
         console.error('Error saving santri: ', error);
     }
 };
 
-const confirmDelete = (santri) => {
+const deleteHandler = (santri) => {
     dialog.open(DeleteDialog, {
         props: {
             header: 'Hapus Santri',
@@ -121,13 +123,13 @@ const confirmDelete = (santri) => {
         data: santri,
         onClose: (confirmed) => {
             if (confirmed) {
-                deleteSantri(santri.id);
+                deleteData(santri.id);
             }
         }
     });
 };
 
-const deleteSantri = async (id) => {
+const deleteData = async (id) => {
     try {
         await SantriService.delete(id);
         await fetchDaftarSantri();
@@ -155,7 +157,7 @@ onMounted(() => {
                             <InputIcon class="pi pi-search" />
                             <InputText v-model="filters['global'].value" placeholder="Cari santri, angkatan, jurusan..." class="w-full" />
                         </IconField>
-                        <Button label="Tambah Santri" icon="pi pi-plus" severity="primary" @click="addSantri" />
+                        <Button label="Tambah Santri" icon="pi pi-plus" severity="primary" @click="addHandler" />
                     </div>
                 </template>
             </Toolbar>
@@ -178,7 +180,6 @@ onMounted(() => {
             v-model:sortOrder="sortOrder"
             :value="daftarSantri"
             :filters="filters"
-            removableSort
             dataKey="id"
             showGridlines
             stripedRows
@@ -192,6 +193,11 @@ onMounted(() => {
             filterDisplay="menu"
             class="p-datatable-hoverable"
         >
+            <Column field="index" header="No" sortable style="min-width: 2rem">
+                <template #body="{ data }">
+                    {{ data.index }}
+                </template>
+            </Column>
             <!-- Kolom-kolom dengan fitur sort -->
             <Column field="name" header="Nama" sortable style="min-width: 12rem">
                 <template #body="{ data }">
@@ -225,8 +231,8 @@ onMounted(() => {
 
             <Column style="width: 8rem">
                 <template #body="slotProps">
-                    <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editSantri(slotProps.data)" />
-                    <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
+                    <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editHandler(slotProps.data)" />
+                    <Button icon="pi pi-trash" outlined rounded severity="danger" @click="deleteHandler(slotProps.data)" />
                 </template>
             </Column>
         </DataTable>

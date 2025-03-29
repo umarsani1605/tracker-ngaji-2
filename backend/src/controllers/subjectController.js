@@ -1,4 +1,5 @@
 import SubjectModel from '../models/subjectModel.js';
+import logger from '../utils/logger.js';
 
 class SubjectController {
   // Get all subjects
@@ -8,7 +9,10 @@ class SubjectController {
 
       res.status(200).json({
         status: 'success',
-        data: subjects,
+        data: subjects.map((item, index) => ({
+          id: index + 1,
+          ...item,
+        })),
       });
     } catch (error) {
       res.status(500).json({
@@ -136,6 +140,31 @@ class SubjectController {
         message: 'Subject berhasil dihapus',
       });
     } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        message: 'Controller Error: ' + error.message,
+      });
+    }
+  }
+
+  // Get subjects by category
+  static async getSubjectByCategory(req, res) {
+    try {
+      const { category_id } = req.params;
+      logger.info('Getting subjects for category:', category_id);
+
+      const subjects = await SubjectModel.getSubjectByCategory(category_id);
+
+      logger.info(`Successfully retrieved ${subjects.length} subjects for category ${category_id}`);
+      res.status(200).json({
+        status: 'success',
+        data: subjects.map((item, index) => ({
+          index: index + 1,
+          ...item,
+        })),
+      });
+    } catch (error) {
+      logger.error('Controller Error: Failed to get subjects by category:', error);
       res.status(500).json({
         status: 'error',
         message: 'Controller Error: ' + error.message,

@@ -86,6 +86,24 @@ class SubjectModel {
       throw error;
     }
   }
+
+  // Mengambil subject berdasarkan category
+  static async getSubjectByCategory(category_id) {
+    try {
+      const [rows] = await db.query(
+        `SELECT s.* 
+        FROM subjects s
+        WHERE s.id_category = ?
+        ORDER BY s.name ASC`,
+        [category_id]
+      );
+
+      return rows;
+    } catch (error) {
+      logger.error('Error in getSubjectByCategory:', error);
+      throw error;
+    }
+  }
 }
 
 export default SubjectModel;

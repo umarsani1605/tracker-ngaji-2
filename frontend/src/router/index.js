@@ -35,6 +35,25 @@ const router = createRouter({
                         {
                             path: 'subyek-penilaian',
                             component: () => import('@/views/pages/admin/SubyekPenilaian.vue')
+                        },
+                        {
+                            path: 'daftar-pentashih',
+                            name: 'DaftarPentashih',
+                            component: () => import('@/views/pages/admin/DaftarPentashih.vue'),
+                            meta: {
+                                requiresAuth: true,
+                                title: 'Daftar Pentashih',
+                                roles: ['admin']
+                            }
+                        },
+                        {
+                            path: 'daftar-penilaian',
+                            name: 'DaftarPenilaian',
+                            component: () => import('@/views/pages/admin/DaftarPenilaian.vue'),
+                            meta: {
+                                title: 'Daftar Penilaian',
+                                requiresAuth: true
+                            }
                         }
                     ]
                 },

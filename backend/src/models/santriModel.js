@@ -1,10 +1,57 @@
 import { db } from '../config/database.js';
 
 class SantriModel {
-  // Mengambil semua data santri
-  static async getAllSantri() {
+  // Mengambil semua data santri dengan filter gender, assigned, dan role
+  static async getAllSantri(gender = null, assigned = null, role = null) {
     try {
-      const [rows] = await db.query('SELECT * FROM santri');
+      const queryBuilder = {
+        baseQuery: 'SELECT s.* FROM santri s',
+        params: [],
+        conditions: [],
+
+        addAssignedFilter(assigned) {
+          if (assigned !== null) {
+            if (assigned === 'true') {
+              this.baseQuery += ' INNER JOIN pentashih p ON s.id = p.id_santri';
+            } else {
+              this.baseQuery += ' LEFT JOIN pentashih p ON s.id = p.id_santri';
+              this.conditions.push('p.id_santri IS NULL');
+            }
+          }
+          return this;
+        },
+
+        addGenderFilter(gender) {
+          if (gender) {
+            this.conditions.push('s.gender = ?');
+            this.params.push(gender);
+          }
+          return this;
+        },
+
+        addRoleFilter(role) {
+          if (role) {
+            this.conditions.push('s.role = ?');
+            this.params.push(role);
+          }
+          return this;
+        },
+
+        buildFinalQuery() {
+          let finalQuery = this.baseQuery;
+
+          if (this.conditions.length > 0) {
+            finalQuery += ' WHERE ' + this.conditions.join(' AND ');
+          }
+
+          finalQuery += ' ORDER BY s.gender, s.name ASC';
+          return { query: finalQuery, params: this.params };
+        },
+      };
+
+      const { query, params } = queryBuilder.addRoleFilter(role).addAssignedFilter(assigned).addGenderFilter(gender).buildFinalQuery();
+
+      const [rows] = await db.query(query, params);
       return rows;
     } catch (error) {
       throw error;
@@ -29,13 +76,10 @@ class SantriModel {
         'INSERT INTO santri (name, gender, angkatan, jurusan, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [name, gender, angkatan, jurusan, role, new Date(), new Date()]
       );
+
       return {
         id: result.insertId,
-        name,
-        gender,
-        angkatan,
-        jurusan,
-        role,
+        ...santriData,
       };
     } catch (error) {
       throw error;

@@ -3,13 +3,13 @@ import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 
 import { config } from './config/database.js';
-import { specs } from './config/swagger.js';
+import { specs } from './utils/swagger.js';
 
 import santriRoutes from './routes/santriRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import subjectRoutes from './routes/subjectRoutes.js';
 import pentashihRoutes from './routes/pentashihRoutes.js';
-// import gradeRoutes from './routes/gradeRoutes.js';
+import gradeRoutes from './routes/gradeRoutes.js';
 // import authRoutes from './routes/authRoutes.js';
 
 const app = express();
@@ -24,7 +24,7 @@ app.use('/santri', santriRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/subjects', subjectRoutes);
 app.use('/pentashih', pentashihRoutes);
-// app.use('/grades', gradeRoutes);
+app.use('/grades', gradeRoutes);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));

@@ -1,21 +1,18 @@
 <script setup>
-// import { FilterMatchMode } from '@primevue/core/api';
 import { onMounted, ref, computed } from 'vue';
 import { useDialog } from 'primevue/usedialog';
-import { CategoryService } from '@/services/categoryService';
-import CategoryFormDialog from '@/components/dialogs/category/CategoryFormDialog.vue';
+import { PentashihService } from '@/services/pentashihService';
+import PentashihFormDialog from '@/components/dialogs/pentashih/PentashihFormDialog.vue';
 import DeleteDialog from '@/components/dialogs/shared/DeleteDialog.vue';
 
 const dialog = useDialog();
 const dt = ref();
-const daftarCategory = ref([]);
+const daftarPentashih = ref([]);
 const loading = ref(false);
 const error = ref(null);
-const categoryDialog = ref(false);
-const selectedCategory = ref({});
 const filters = ref({
     global: { value: null, matchMode: 'contains' },
-    name: { value: null, matchMode: 'contains' }
+    pentashih_name: { value: null, matchMode: 'contains' }
 });
 const sortField = ref(null);
 const sortOrder = ref(null);
@@ -41,24 +38,23 @@ const clearTable = async () => {
     });
 };
 
-const fetchDaftarCategory = async () => {
+const fetchDaftarPentashih = async () => {
     loading.value = true;
     try {
-        const data = await CategoryService.getAll();
-        daftarCategory.value = data.data;
-        console.log('daftarCategory', daftarCategory.value);
+        const data = await PentashihService.getAll();
+        daftarPentashih.value = data.data;
     } catch (error) {
-        console.error('Fetch Error: Gagal mengambil data kategori, ', error);
-        error.value = 'Fetch Error: Gagal mengambil data kategori';
+        console.error('Fetch Error: Gagal mengambil data pentashih, ', error);
+        error.value = 'Fetch Error: Gagal mengambil data pentashih';
     } finally {
         loading.value = false;
     }
 };
 
 const addHandler = () => {
-    dialog.open(CategoryFormDialog, {
+    dialog.open(PentashihFormDialog, {
         props: {
-            header: 'Tambah Kategori',
+            header: 'Tambah Pentashih',
             style: {
                 minWidth: '32rem'
             },
@@ -74,19 +70,19 @@ const addHandler = () => {
     });
 };
 
-const editHandler = (category) => {
-    dialog.open(CategoryFormDialog, {
+const editHandler = (pentashih) => {
+    dialog.open(PentashihFormDialog, {
         props: {
-            header: 'Edit Kategori',
+            header: 'Edit Pentashih',
             style: {
                 minWidth: '32rem'
             },
             modal: true
         },
-        data: { ...category },
+        data: { ...pentashih },
         emits: {
             onSave: (data) => {
-                saveData(data);
+                updateData(data);
             },
             onCancel: () => {}
         }
@@ -95,33 +91,33 @@ const editHandler = (category) => {
 
 const saveData = async (data) => {
     try {
-        if (data.id) {
-            console.log('masuk update, data', data);
-
-            await CategoryService.update(data.id, data);
-        } else {
-            console.log('masuk create, data', data);
-
-            await CategoryService.create(data);
-        }
-        await fetchDaftarCategory();
-        categoryDialog.value = false;
-        selectedCategory.value = {};
+        await PentashihService.create(data);
+        await fetchDaftarPentashih();
     } catch (error) {
-        console.error('Error saving kategori: ', error);
+        console.error('Error saving pentashih: ', error);
     }
 };
 
-const deleteHandler = (category) => {
+const updateData = async (data) => {
+    console.log('Data yang akan diupdate:', JSON.stringify(data, null, 2));
+    try {
+        await PentashihService.update(data.id_pentashih, data.santri_ids);
+        await fetchDaftarPentashih();
+    } catch (error) {
+        console.error('Error updating pentashih: ', error);
+    }
+};
+
+const deleteHandler = (pentashih) => {
     dialog.open(DeleteDialog, {
         props: {
-            header: 'Hapus Kategori',
+            header: 'Hapus Pentashih',
             modal: true
         },
-        data: category,
+        data: pentashih,
         onClose: (confirmed) => {
             if (confirmed) {
-                deleteData(category.id);
+                deleteData(pentashih.id_pentashih);
             }
         }
     });
@@ -129,22 +125,22 @@ const deleteHandler = (category) => {
 
 const deleteData = async (id) => {
     try {
-        await CategoryService.delete(id);
-        await fetchDaftarCategory();
+        await PentashihService.delete(id);
+        await fetchDaftarPentashih();
     } catch (error) {
-        console.error('Error deleting kategori: ', error);
+        console.error('Error deleting pentashih: ', error);
     }
 };
 
-// Lifecycle Hooks
 onMounted(() => {
-    fetchDaftarCategory();
+    fetchDaftarPentashih();
 });
 </script>
+
 <template>
     <div class="card border-slate-200 border pt-4">
         <div class="flex flex-col gap-2 pt-4">
-            <h3 class="text-2xl font-bold">Daftar Kategori Penilaian</h3>
+            <h3 class="text-2xl font-bold">Daftar Pentashih</h3>
             <Toolbar class="toolbar !px-0 !border-none">
                 <template #start>
                     <Button v-if="showResetButton" type="button" icon="pi pi-filter-slash" label="Bersihkan" outlined @click="clearTable()" />
@@ -153,9 +149,9 @@ onMounted(() => {
                     <div class="flex gap-4">
                         <IconField iconPosition="left" class="block w-80 mt-2 md:mt-0">
                             <InputIcon class="pi pi-search" />
-                            <InputText v-model="filters['global'].value" placeholder="Cari kategori..." class="w-full" />
+                            <InputText v-model="filters['global'].value" placeholder="Cari pentashih..." class="w-full" />
                         </IconField>
-                        <Button label="Tambah Kategori" icon="pi pi-plus" severity="primary" @click="addHandler" />
+                        <Button label="Tambah Pentashih" icon="pi pi-plus" severity="primary" @click="addHandler" />
                     </div>
                 </template>
             </Toolbar>
@@ -173,29 +169,34 @@ onMounted(() => {
         <DataTable
             v-else
             ref="dt"
-            v-model:filters="filters"
-            v-model:sortField="sortField"
-            v-model:sortOrder="sortOrder"
-            :value="daftarCategory"
+            :value="daftarPentashih"
             :filters="filters"
             removableSort
             dataKey="id"
             showGridlines
             stripedRows
-            :globalFilterFields="['name']"
+            :globalFilterFields="['pentashih_name']"
             tableStyle="min-width: 50rem"
             filterDisplay="menu"
             class="p-datatable-hoverable"
         >
-            <!-- Kolom-kolom dengan fitur sort -->
             <Column field="id" header="No." style="width: 2rem">
                 <template #body="{ data }">
                     {{ data.id }}
                 </template>
             </Column>
-            <Column field="name" header="Nama" sortable style="min-width: 12rem">
+
+            <Column field="pentashih_name" header="Nama Pentashih" sortable style="min-width: 12rem">
                 <template #body="{ data }">
-                    {{ data.name }}
+                    {{ data.pentashih_name }}
+                </template>
+            </Column>
+
+            <Column field="santri_list" header="Daftar Santri" style="min-width: 20rem">
+                <template #body="{ data }">
+                    <div class="flex flex-wrap gap-2">
+                        <Chip v-for="santri in data.santri_list" :key="santri.id" :label="santri.name" class="!bg-[var(--p-primary-100)] !text-[var(--p-primary-800)] !px-4 !rounded-2xl font-medium" />
+                    </div>
                 </template>
             </Column>
 
@@ -229,10 +230,5 @@ onMounted(() => {
 
 .p-datatable.p-datatable-hoverable .p-datatable-tbody > tr {
     transition: background-color 0.2s;
-}
-
-/* Style untuk opsi dropdown role */
-.p-select-list-container .p-select-option-label {
-    text-transform: capitalize;
 }
 </style>

@@ -8,7 +8,10 @@ class PentashihController {
 
       res.status(200).json({
         status: 'success',
-        data: pentashih,
+        data: pentashih.map((item, index) => ({
+          id: index + 1,
+          ...item,
+        })),
       });
     } catch (error) {
       res.status(500).json({
@@ -77,27 +80,19 @@ class PentashihController {
   static async updatePentashih(req, res) {
     try {
       const { id } = req.params;
-      const { id_pentashih, santri_ids } = req.body;
+      const santri_ids = req.body;
 
-      if (!id_pentashih) {
+      console.log('id: ' + id);
+      console.log('santri_ids: ' + santri_ids);
+
+      if (!id) {
         return res.status(400).json({
           status: 'error',
           message: 'ID Pentashih harus diisi',
         });
       }
 
-      const existingPentashih = await PentashihModel.getPentashihById(id);
-      if (!existingPentashih) {
-        return res.status(404).json({
-          status: 'error',
-          message: 'Pentashih tidak ditemukan',
-        });
-      }
-
-      const updatedPentashih = await PentashihModel.updatePentashih(id, {
-        id_pentashih,
-        santri_ids,
-      });
+      const updatedPentashih = await PentashihModel.updatePentashih(id, santri_ids);
 
       res.status(200).json({
         status: 'success',
