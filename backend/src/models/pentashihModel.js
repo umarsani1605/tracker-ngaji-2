@@ -6,7 +6,7 @@ class PentashihModel {
   static async getAllPentashih() {
     try {
       const [rows] = await db.query(`
-        SELECT DISTINCT p.id_pentashih, s.name as pentashih_name 
+        SELECT DISTINCT p.id_pentashih, s.name as pentashih_name, s.gender as pentashih_gender
         FROM pentashih p
         JOIN santri s ON p.id_pentashih = s.id
       `);

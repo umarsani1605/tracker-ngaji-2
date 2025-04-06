@@ -2,9 +2,12 @@
 import { ref, inject, onMounted, watch } from 'vue';
 import { SantriService } from '@/services/santriService';
 import { useRouter } from 'vue-router';
+import { useConfirm } from 'primevue/useconfirm';
+import ConfirmDialog from 'primevue/confirmdialog';
 
 const dialogRef = inject('dialogRef');
-const emit = defineEmits(['cancel', 'save']);
+const emit = defineEmits(['cancel', 'save', 'delete']);
+const confirm = useConfirm();
 
 const pentashih = dialogRef.value.data;
 const formData = ref({
@@ -44,6 +47,23 @@ watch(selectedPentashih, async (newPentashih) => {
     }
 });
 
+const showDeleteConfirmation = () => {
+    confirm.require({
+        message: 'Daftar santri kosong. Apakah Anda ingin menghapus pentashih ini?',
+        header: 'Konfirmasi Penghapusan',
+        icon: 'pi pi-exclamation-triangle',
+        acceptLabel: 'Ya, Hapus',
+        rejectLabel: 'Tidak',
+        accept: () => {
+            emit('delete', selectedPentashih.value.id);
+            dialogRef.value.close();
+        },
+        reject: () => {
+            // Biarkan user melanjutkan edit tanpa santri
+        }
+    });
+};
+
 const onSave = () => {
     submitted.value = true;
 
@@ -51,6 +71,13 @@ const onSave = () => {
         return;
     }
 
+    // Cek jika santri_ids kosong
+    if (formData.value.santri_ids.length === 0) {
+        showDeleteConfirmation();
+        return;
+    }
+
+    // Jika ada santri, lanjutkan save seperti biasa
     emit('save', {
         id_pentashih: selectedPentashih.value.id,
         santri_ids: formData.value.santri_ids
@@ -63,9 +90,9 @@ const onCancel = () => {
     dialogRef.value.close();
 };
 
-const goToSantriList = () => {
+const goToPentashihList = () => {
     dialogRef.value.close();
-    router.push('/admin/daftar-santri');
+    router.push('/admin/daftar-pentashih');
 };
 
 onMounted(() => {
@@ -76,10 +103,12 @@ onMounted(() => {
 
 <template>
     <div class="p-fluid">
+        <ConfirmDialog />
+
         <div class="field flex flex-col gap-2">
             <div class="flex justify-between items-center">
                 <label for="pentashih">Pentashih <span class="text-red-500">*</span></label>
-                <Button icon="pi pi-plus" label="Pentashih Baru" @click="goToSantriList" class="p-0" variant="text" size="small" />
+                <Button icon="pi pi-plus" label="Pentashih Baru" @click="goToPentashihList" class="p-0" variant="text" size="small" />
             </div>
             <Dropdown id="pentashih" v-model="selectedPentashih" :options="pentashihList" optionLabel="name" placeholder="Pilih Pentashih" :class="{ 'p-invalid': submitted && !selectedPentashih }" :disabled="!!pentashih.id_pentashih" />
         </div>

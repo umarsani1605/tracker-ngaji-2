@@ -76,6 +76,7 @@ watch(selectedPentashih, async (newPentashih) => {
             const response = await SantriService.getAll();
             santriList.value = response.data;
             console.log('santri list', santriList.value);
+            formData.value.id_pentashih = '';
         } else {
             if (!newPentashih) {
                 santriList.value = [];
@@ -84,6 +85,7 @@ watch(selectedPentashih, async (newPentashih) => {
             const response = await PentashihService.getSantriByPentashihId(selectedPentashih.value.id);
             santriList.value = response.data;
             console.log('santri list', santriList.value);
+            formData.value.id_pentashih = selectedPentashih.value.id;
         }
     } catch (error) {
         console.error('Error fetching santri list:', error);
@@ -102,6 +104,7 @@ watch(selectedCategory, async (newCategory) => {
             } else {
                 selectedSubject.value = null;
             }
+            formData.value.id_category = newCategory.id;
         } else {
             subjectList.value = [];
             selectedSubject.value = null;

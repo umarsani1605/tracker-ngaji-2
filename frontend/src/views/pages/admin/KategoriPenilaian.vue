@@ -119,10 +119,12 @@ const deleteHandler = (category) => {
             modal: true
         },
         data: category,
-        onClose: (confirmed) => {
-            if (confirmed) {
-                deleteData(category.id);
-            }
+        emits: {
+            onConfirm: (data) => {
+                console.log('masuk delete, data: ', data);
+                deleteData(data.id);
+            },
+            onCancel: () => {}
         }
     });
 };

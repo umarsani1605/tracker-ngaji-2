@@ -8,8 +8,8 @@ const emit = defineEmits(['cancel', 'save']);
 const subject = dialogRef.value.data;
 const formData = ref({
     ...subject,
-    has_hafalan: subject.has_hafalan || false,
-    has_setoran: subject.has_setoran || false
+    has_hafalan: Boolean(subject.has_hafalan),
+    has_setoran: Boolean(subject.has_setoran)
 });
 const submitted = ref(false);
 const categories = ref([]);
@@ -41,6 +41,11 @@ const onCancel = () => {
 
 onMounted(() => {
     fetchCategories();
+    console.log('formData: ' + JSON.stringify(formData.value));
+    console.log('has_hafalan: ' + formData.value.has_hafalan);
+    console.log('has_setoran: ' + formData.value.has_setoran);
+    console.log('has_hafalan: ' + Boolean(formData.value.has_hafalan));
+    console.log('has_setoran: ' + Boolean(formData.value.has_setoran));
 });
 </script>
 

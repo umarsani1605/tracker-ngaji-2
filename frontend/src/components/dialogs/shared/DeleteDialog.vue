@@ -1,6 +1,8 @@
 <script setup>
 import { inject } from 'vue';
 
+const emit = defineEmits(['confirm', 'cancel']);
+
 const props = defineProps({
     title: {
         type: String,
@@ -14,12 +16,16 @@ const props = defineProps({
 
 const dialogRef = inject('dialogRef');
 
+const data = dialogRef.value.data;
+
 const onConfirm = () => {
-    dialogRef.value.close(true);
+    emit('confirm', data);
+    dialogRef.value.close();
 };
 
 const onCancel = () => {
-    dialogRef.value.close(false);
+    emit('cancel');
+    dialogRef.value.close();
 };
 </script>
 

@@ -1,9 +1,11 @@
 <script setup>
 import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
-import { onBeforeMount, onMounted, ref } from 'vue';
-
-// import { supabase } from '@/utils/supabase';
+import { onBeforeMount, onMounted, ref, computed } from 'vue';
+import { CategoryService } from '@/services/categoryService';
+import { SubjectService } from '@/services/subjectService';
+import { SantriService } from '@/services/santriService';
+import { GradeService } from '@/services/gradeService';
 
 const toast = useToast();
 
@@ -16,149 +18,97 @@ const dt = ref(null);
 const filters = ref({});
 const submitted = ref(false);
 
-const angkatan = ref([{ value: '2023' }, { value: '2022' }, { value: '2021' }, { value: '2020' }, { value: '2019' }, { value: '2018' }]);
-
-const getBadgeSeverity = (grade) => {
-    switch (grade.toLowerCase()) {
-        case 'tercapai':
-            return 'success';
-        case 'tidak tercapai':
-            return 'danger';
-        default:
-            return 'info';
-    }
-};
+// State untuk menyimpan data
+const categories = ref([]);
+const subjects = ref([]);
+const loading = ref(false);
+const error = ref(null);
 
 const getSantriGrades = async () => {
-    const { data, error } = '';
+    loading.value = true;
+    try {
+        const santriRes = await SantriService.getAll();
+        const gradeRes = await GradeService.getAll();
 
-    let mergedData = data.reduce((acc, curr) => {
-        const { id_santri, hafalan, setoran, pentashih, date, santri, subject } = curr;
+        console.log('gradeRes: ' + JSON.stringify(gradeRes));
 
-        if (!acc[id_santri]) {
-            acc[id_santri] = {
-                santri,
-                subjects: {}
+        // Transform data untuk tabel
+        daftarSantri.value = santriRes.data.map((santri) => {
+            // Inisialisasi objek subjects dengan semua subject yang ada
+            const subjectsData = {};
+
+            // Isi default value untuk semua subject
+            subjects.value.forEach((subject) => {
+                subjectsData[subject.name] = {
+                    // Hanya set 'belum' jika subject memiliki tipe penilaian tersebut
+                    grade_setoran: subject.has_setoran ? 'belum' : null,
+                    grade_hafalan: subject.has_hafalan ? 'belum' : null,
+                    pentashih: '-',
+                    date: '-'
+                };
+            });
+
+            // Filter grade untuk santri ini
+            const santriGrades = gradeRes.data.filter((g) => g.id_santri === santri.id);
+
+            console.log('santriGrades: ' + JSON.stringify(santriGrades));
+
+            // Update nilai dari grade yang ada
+            santriGrades.forEach((grade) => {
+                const subjectName = grade.subject_name;
+
+                // Update nilai sesuai data grade
+                if (grade.setoran) {
+                    subjectsData[subjectName].grade_setoran = grade.setoran;
+                }
+                if (grade.hafalan) {
+                    subjectsData[subjectName].grade_hafalan = grade.hafalan;
+                }
+
+                // Update pentashih dan tanggal jika ada perubahan nilai
+                if (grade.setoran !== 'belum' || grade.hafalan !== 'belum') {
+                    subjectsData[subjectName].pentashih = grade.pentashih_name;
+                    subjectsData[subjectName].date = grade.updated_at;
+                }
+            });
+
+            // Ambil pentashih dan tanggal terakhir dari grade yang bukan 'belum'
+            const latestGrade = santriGrades.filter((g) => g.setoran !== 'belum' || g.hafalan !== 'belum').sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+
+            return {
+                santri: {
+                    id: santri.id,
+                    name: santri.name,
+                    code: santri.code,
+                    angkatan: santri.angkatan
+                },
+                subjects: subjectsData,
+                pentashih: latestGrade?.pentashih_name || '-',
+                tanggal: latestGrade?.updated_at || '-'
             };
-        }
-
-        const subjectData = {
-            ...subject,
-            grade_hafalan: hafalan,
-            grade_setoran: setoran,
-            pentashih,
-            date
-        };
-
-        acc[id_santri].subjects[subject.name_slug] = subjectData;
-
-        return acc;
-    }, {});
-
-    mergedData = Object.values(mergedData);
-
-    console.log(mergedData);
-
-    daftarSantri.value = [...mergedData];
-
-    console.log(daftarSantri.value);
-    console.log(daftarSantri.value[0]);
+        });
+    } catch (err) {
+        console.error('Error fetching santri grades:', err);
+        error.value = 'Gagal mengambil data penilaian';
+    } finally {
+        loading.value = false;
+    }
 };
 
 onBeforeMount(() => {
     initFilters();
-    getSantriGrades();
 });
 
-onMounted(() => {});
-
-const openNew = () => {
-    santri.value = {};
-    submitted.value = false;
-    santriDialog.value = true;
-};
+onMounted(async () => {
+    await fetchData(); // Ambil kategori dan subject dulu
+    await getSantriGrades(); // Kemudian ambil data santri dan grade
+    console.log('columnGroups: ' + JSON.stringify(columnGroups.value));
+    console.log('santri: ' + JSON.stringify(daftarSantri.value));
+});
 
 const hideDialog = () => {
     santriDialog.value = false;
     submitted.value = false;
-};
-
-const saveSantri = async () => {
-    submitted.value = true;
-    if (santri.value.name && santri.value.name.trim()) {
-        if (santri.value.code) {
-            // update
-            daftarSantri.value[findIndexById(santri.value.id)] = santri.value;
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Updated', life: 3000 });
-        } else {
-            santri.value.angkatan = santri.value.angkatan.value;
-            santri.value.code = createId();
-
-            console.log(santri.value);
-
-            const newSantri = await supabase.from('santri').insert([santri.value]).select();
-
-            let grades = [];
-
-            for (var i = 1; i <= 13; i++) {
-                var data = {
-                    id_santri: newSantri.data[0].id,
-                    id_subject: i,
-                    hafalan: 'Tidak Tercapai',
-                    setoran: 'Tidak Tercapai'
-                };
-                grades.push(data);
-            }
-
-            const newGrades = await supabase.from('grade').insert(grades).select();
-
-            console.log(newGrades.value);
-
-            location.reload();
-
-            // daftarSantri.value.push(santri.value);
-            // toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Created', life: 3000 });
-        }
-        santriDialog.value = false;
-        santri.value = {};
-    }
-};
-
-const editSantri = (editSantri) => {
-    santri.value = { ...editSantri };
-    santriDialog.value = true;
-};
-
-const confirmDeleteSantri = (editSantri) => {
-    santri.value = editSantri;
-    deletesantriDialog.value = true;
-};
-
-const deleteSantri = () => {
-    daftarSantri.value = daftarSantri.value.filter((val) => val.id !== santri.value.id);
-    deleteSantriDialog.value = false;
-    santri.value = {};
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Deleted', life: 3000 });
-};
-
-const findIndexById = (id) => {
-    let index = -1;
-    for (let i = 0; i < daftarSantri.value.length; i++) {
-        if (daftarSantri.value[i].id === id) {
-            index = i;
-            break;
-        }
-    }
-    return index;
-};
-
-const createId = () => {
-    const upperCaseLetter = String.fromCharCode(Math.floor(Math.random() * 26) + 65);
-
-    const firstDigit = Math.floor(Math.random() * 10);
-    const secondDigit = Math.floor(Math.random() * 10);
-
-    return upperCaseLetter + firstDigit + secondDigit;
 };
 
 const exportCSV = () => {
@@ -169,6 +119,98 @@ const initFilters = () => {
     filters.value = {
         global: { value: null, matchMode: FilterMatchMode.CONTAINS }
     };
+};
+
+// Fungsi untuk fetch data
+const fetchData = async () => {
+    loading.value = true;
+    try {
+        const [categoriesRes, subjectsRes] = await Promise.all([CategoryService.getAll(), SubjectService.getAll()]);
+
+        categories.value = categoriesRes.data;
+        subjects.value = subjectsRes.data;
+    } catch (err) {
+        console.error('Error fetching data:', err);
+        error.value = 'Gagal mengambil data';
+    } finally {
+        loading.value = false;
+    }
+};
+
+const columnGroups = computed(() => {
+    // Tingkat 1: Kategori
+    const level1 = categories.value.map((category) => ({
+        header: category.name,
+        colspan: subjects.value.filter((s) => s.id_category === category.id).reduce((acc, subj) => acc + (subj.has_hafalan ? 1 : 0) + (subj.has_setoran ? 1 : 0), 0)
+    }));
+
+    // Tingkat 2: Subyek
+    const level2 = categories.value
+        .map((category) =>
+            subjects.value
+                .filter((s) => s.id_category === category.id)
+                .map((subject) => ({
+                    header: subject.name,
+                    colspan: (subject.has_hafalan ? 1 : 0) + (subject.has_setoran ? 1 : 0)
+                }))
+        )
+        .flat();
+
+    // Tingkat 3: Setoran/Hafalan
+    const level3 = subjects.value
+        .map((subject) => {
+            const columns = [];
+            if (subject.has_setoran) {
+                columns.push({
+                    header: 'Setoran',
+                    field: `${subject.id}_setoran`,
+                    subject_name: subject.name
+                });
+            }
+            if (subject.has_hafalan) {
+                columns.push({
+                    header: 'Hafalan',
+                    field: `${subject.id}_hafalan`,
+                    subject_name: subject.name
+                });
+            }
+            return columns;
+        })
+        .flat();
+
+    return { level1, level2, level3 };
+});
+
+const formatDate = (dateString) => {
+    if (dateString === '-') return '-';
+    return new Date(dateString).toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+};
+
+const getBadgeSeverity = (status) => {
+    switch (status) {
+        case 'sudah':
+            return 'success';
+        case 'proses':
+            return 'warning';
+        case 'belum':
+            return 'danger';
+        default:
+            return null;
+    }
+};
+
+const getSubjectName = (field) => {
+    const subjectId = field.split('_')[0];
+    const subject = subjects.value.find((s) => s.id === parseInt(subjectId));
+    return subject?.name || '';
+};
+
+const getGradeType = (field) => {
+    return field.split('_')[1];
 };
 </script>
 <template>
@@ -198,65 +240,22 @@ const initFilters = () => {
                     <Column header="Nama" :rowspan="3" />
                     <Column header="Angkatan" :rowspan="3" />
                     <Column header="Kode" :rowspan="3" />
-                    <Column header="Al-Qur'an" :colspan="12" />
-                    <Column header="Sholat dan Wudhu" :colspan="4" />
-                    <Column header="Tahlil dan Wirid" :colspan="7" />
+                    <div v-for="col in columnGroups.level1" :key="col.header">
+                        <Column :header="col.header" :colspan="col.colspan" />
+                    </div>
                     <Column header="Pentashih" :rowspan="3" />
-                    <Column header="Tanggal" :rowspan="3" headerStyle="min-width:12rem" />
+                    <Column header="Tanggal" :rowspan="3" />
                     <Column header="" :rowspan="3" />
                 </Row>
                 <Row>
-                    <Column header="Juz Amma" :colspan="2" />
-                    <Column header="Al-Mulk" :colspan="2" />
-                    <Column header="As-Sajdah" :colspan="2" />
-                    <Column header="Al-Waqiah" :colspan="2" />
-                    <Column header="Ar-Rahman" :colspan="2" />
-                    <Column header="Yasin" :colspan="2" />
-                    <Column header="Bacaan Sholat" :colspan="2" />
-                    <Column header="Bacaan Wudhu" :colspan="2" />
-                    <Column header="Tahlil" :colspan="2" />
-                    <Column header="Wirid" :colspan="2" />
-                    <Column header="Istighosah" />
-                    <Column header="Ratibul Haddad" />
-                    <Column header="Maulid Barzanjie" />
+                    <div v-for="col in columnGroups.level2" :key="col.header">
+                        <Column :header="col.header" :colspan="col.colspan" />
+                    </div>
                 </Row>
                 <Row>
-                    <Column header="Setoran" />
-                    <!-- Juz Amma -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- Al-Mulk -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- As-Sajdah -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- Al-Waqiah -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- Ar-Rahman -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- Yasin -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- Bacaan Sholat -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- Bacaan Wudhu -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- Tahlil -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- Wirid -->
-                    <Column header="Hafalan" />
-                    <Column header="Setoran" />
-                    <!-- Istighosah -->
-                    <Column header="Setoran" />
-                    <!-- Ratibul Haddad -->
-                    <Column header="Setoran" />
-                    <!-- Maulid Barzanji -->
+                    <div v-for="col in columnGroups.level3" :key="col.field">
+                        <Column :header="col.header" />
+                    </div>
                 </Row>
             </ColumnGroup>
 
@@ -265,7 +264,7 @@ const initFilters = () => {
                     {{ slotProps.data.santri.name }}
                 </template>
             </Column>
-            <Column field="santri.angkatan" :sortable="true" headerStyle="width:14%; min-width:10rem;">
+            <Column field="santri.angkatan" :sortable="true">
                 <template #body="slotProps">
                     {{ slotProps.data.santri.angkatan }}
                 </template>
@@ -275,129 +274,41 @@ const initFilters = () => {
                     {{ slotProps.data.santri.code }}
                 </template>
             </Column>
-            <Column field="subjects.juz_amma.grade_setoran">
+
+            <template v-for="subject in subjects" :key="subject.id">
+                <Column v-if="subject.has_setoran" :field="`subjects.${subject.name}.grade_setoran`">
+                    <template #body="slotProps">
+                        <Tag
+                            v-if="slotProps.data.subjects[subject.name]?.grade_setoran"
+                            :value="slotProps.data.subjects[subject.name].grade_setoran"
+                            :severity="getBadgeSeverity(slotProps.data.subjects[subject.name].grade_setoran)"
+                            class="!border-none capitalize"
+                        />
+                        <span v-else>-</span>
+                    </template>
+                </Column>
+
+                <Column v-if="subject.has_hafalan" :field="`subjects.${subject.name}.grade_hafalan`">
+                    <template #body="slotProps">
+                        <Tag
+                            v-if="slotProps.data.subjects[subject.name]?.grade_hafalan"
+                            :value="slotProps.data.subjects[subject.name].grade_hafalan"
+                            :severity="getBadgeSeverity(slotProps.data.subjects[subject.name].grade_hafalan)"
+                            class="!border-none capitalize"
+                        />
+                        <span v-else>-</span>
+                    </template>
+                </Column>
+            </template>
+
+            <Column field="pentashih">
                 <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.juz_amma.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.juz_amma.grade_setoran)" />
+                    {{ slotProps.data.pentashih }}
                 </template>
             </Column>
-            <Column field="subjects.juz_amma.grade_hafalan">
+            <Column field="tanggal" headerStyle="min-width:12rem">
                 <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.juz_amma.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.juz_amma.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.al_mulk.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.al_mulk.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.al_mulk.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.al_mulk.grade_hafalan">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.al_mulk.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.al_mulk.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.as_sajdah.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.as_sajdah.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.as_sajdah.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.as_sajdah.grade_hafalan">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.as_sajdah.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.as_sajdah.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.al_waqiah.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.al_waqiah.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.al_waqiah.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.al_waqiah.grade_hafalan">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.al_waqiah.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.al_waqiah.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.ar_rahman.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.ar_rahman.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.ar_rahman.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.ar_rahman.grade_hafalan">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.ar_rahman.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.ar_rahman.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.yasin.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.yasin.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.yasin.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.yasin.grade_hafalan">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.yasin.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.yasin.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.sholat.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.sholat.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.sholat.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.sholat.grade_hafalan">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.sholat.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.sholat.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.wudhu.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.wudhu.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.wudhu.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.wudhu.grade_hafalan">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.wudhu.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.wudhu.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.tahlil.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.tahlil.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.tahlil.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.tahlil.grade_hafalan">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.tahlil.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.tahlil.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.wirid.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.wirid.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.wirid.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.wirid.grade_hafalan">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.wirid.grade_hafalan" :severity="getBadgeSeverity(slotProps.data.subjects.wirid.grade_hafalan)" />
-                </template>
-            </Column>
-            <Column field="subjects.istighosah.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.istighosah.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.istighosah.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.ratibul_haddad.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.ratibul_haddad.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.ratibul_haddad.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.barzanji.grade_setoran">
-                <template #body="slotProps">
-                    <Tag :value="slotProps.data.subjects.barzanji.grade_setoran" :severity="getBadgeSeverity(slotProps.data.subjects.barzanji.grade_setoran)" />
-                </template>
-            </Column>
-            <Column field="subjects.juz_amma.pentashih">
-                <template #body="slotProps">
-                    {{ slotProps.data.subjects.juz_amma.pentashih }}
-                </template>
-            </Column>
-            <Column field="subjects.juz_amma.date">
-                <template #body="slotProps">
-                    {{ slotProps.data.subjects.juz_amma.date }}
+                    {{ formatDate(slotProps.data.tanggal) }}
                 </template>
             </Column>
             <Column headerStyle="min-width:10rem;">

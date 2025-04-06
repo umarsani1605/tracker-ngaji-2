@@ -121,10 +121,12 @@ const deleteHandler = (santri) => {
             modal: true
         },
         data: santri,
-        onClose: (confirmed) => {
-            if (confirmed) {
-                deleteData(santri.id);
-            }
+        emits: {
+            onConfirm: (data) => {
+                console.log('masuk delete, data: ', data);
+                deleteData(data.id);
+            },
+            onCancel: () => {}
         }
     });
 };

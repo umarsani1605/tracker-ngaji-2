@@ -30,29 +30,16 @@ const filters = ref({
 
 const gradeStore = useGradeStore();
 
-const getHafalanSeverity = (status) => {
+const getStatusClass = (status) => {
     switch (status) {
         case 'sudah':
-            return 'success';
+            return 'bg-green-100 text-green-700';
         case 'proses':
-            return 'warning';
+            return 'bg-yellow-100 text-yellow-700';
         case 'belum':
-            return 'danger';
+            return 'bg-red-100 text-red-700';
         default:
-            return null;
-    }
-};
-
-const getSetoranSeverity = (status) => {
-    switch (status) {
-        case 'sudah':
-            return 'success';
-        case 'proses':
-            return 'warning';
-        case 'belum':
-            return 'danger';
-        default:
-            return null;
+            return '';
     }
 };
 
@@ -224,7 +211,7 @@ onMounted(() => {
 
             <Column field="hafalan" header="Status Hafalan" class="capitalize" sortable>
                 <template #body="{ data }">
-                    <Tag :value="data.hafalan" :severity="getHafalanSeverity(data.hafalan)" />
+                    <Tag :value="data.hafalan" :class="getStatusClass(data.hafalan)" />
                 </template>
                 <template #filter="{ filterModel }">
                     <Dropdown v-model="filterModel.value" :options="gradeStore.getHafalanStatusList" placeholder="Pilih Status" class="p-column-filter capitalize" showClear />
@@ -233,7 +220,7 @@ onMounted(() => {
 
             <Column field="setoran" header="Status Setoran" class="capitalize" sortable>
                 <template #body="{ data }">
-                    <Tag :value="data.setoran" :severity="getSetoranSeverity(data.setoran)" />
+                    <Tag :value="data.setoran" :class="getStatusClass(data.setoran)" />
                 </template>
                 <template #filter="{ filterModel }">
                     <Dropdown v-model="filterModel.value" :options="gradeStore.getSetoranStatusList" placeholder="Pilih Status" class="p-column-filter capitalize" showClear />

@@ -6,11 +6,13 @@ class SantriController {
   static async getAllSantri(req, res) {
     try {
       const { gender, assigned, role } = req.query;
+
       logger.info(`Mengambil data santri dengan filter - gender: ${gender || 'semua'}, assigned: ${assigned || 'semua'}, role: ${role || 'semua'}`);
 
       const santri = await SantriModel.getAllSantri(gender, assigned, role);
 
       logger.info(`Berhasil mengambil ${santri.length} data santri`);
+
       res.status(200).json({
         status: 'success',
         data: santri.map((item, index) => ({

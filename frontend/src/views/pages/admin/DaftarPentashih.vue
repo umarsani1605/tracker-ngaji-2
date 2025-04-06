@@ -4,6 +4,8 @@ import { useDialog } from 'primevue/usedialog';
 import { PentashihService } from '@/services/pentashihService';
 import PentashihFormDialog from '@/components/dialogs/pentashih/PentashihFormDialog.vue';
 import DeleteDialog from '@/components/dialogs/shared/DeleteDialog.vue';
+import Tag from 'primevue/tag';
+import Dropdown from 'primevue/dropdown';
 
 const dialog = useDialog();
 const dt = ref();
@@ -12,7 +14,8 @@ const loading = ref(false);
 const error = ref(null);
 const filters = ref({
     global: { value: null, matchMode: 'contains' },
-    pentashih_name: { value: null, matchMode: 'contains' }
+    pentashih_name: { value: null, matchMode: 'contains' },
+    pentashih_gender: { value: null, matchMode: 'equals' }
 });
 const sortField = ref(null);
 const sortOrder = ref(null);
@@ -84,6 +87,9 @@ const editHandler = (pentashih) => {
             onSave: (data) => {
                 updateData(data);
             },
+            onDelete: (id) => {
+                deleteData(id);
+            },
             onCancel: () => {}
         }
     });
@@ -115,10 +121,12 @@ const deleteHandler = (pentashih) => {
             modal: true
         },
         data: pentashih,
-        onClose: (confirmed) => {
-            if (confirmed) {
-                deleteData(pentashih.id_pentashih);
-            }
+        emits: {
+            onConfirm: (data) => {
+                console.log('masuk delete, data: ', data);
+                deleteData(data.id_pentashih);
+            },
+            onCancel: () => {}
         }
     });
 };
@@ -130,6 +138,19 @@ const deleteData = async (id) => {
     } catch (error) {
         console.error('Error deleting pentashih: ', error);
     }
+};
+
+const genderOptions = [
+    { label: 'Laki-laki', value: 'L' },
+    { label: 'Perempuan', value: 'P' }
+];
+
+const getGenderLabel = (gender) => {
+    return genderOptions.find((option) => option.value === gender)?.label || '';
+};
+
+const getGenderSeverity = (gender) => {
+    return gender === 'L' ? 'info' : 'warning';
 };
 
 onMounted(() => {
@@ -192,6 +213,25 @@ onMounted(() => {
                 </template>
             </Column>
 
+            <Column field="pentashih_gender" header="Gender" sortable style="width: 10rem">
+                <template #body="{ data }">
+                    <Tag :value="getGenderLabel(data.pentashih_gender)" :severity="getGenderSeverity(data.pentashih_gender)" />
+                </template>
+                <template #filter="{ filterModel }">
+                    <Dropdown v-model="filterModel.value" :options="genderOptions" optionLabel="label" optionValue="value" placeholder="Pilih Gender" class="p-column-filter" :showClear="true">
+                        <template #value="slotProps">
+                            <Tag v-if="slotProps.value" :value="getGenderLabel(slotProps.value)" :severity="getGenderSeverity(slotProps.value)" />
+                            <span v-else>
+                                {{ slotProps.placeholder }}
+                            </span>
+                        </template>
+                        <template #option="slotProps">
+                            <Tag :value="slotProps.option.label" :severity="getGenderSeverity(slotProps.option.value)" />
+                        </template>
+                    </Dropdown>
+                </template>
+            </Column>
+
             <Column field="santri_list" header="Daftar Santri" style="min-width: 20rem">
                 <template #body="{ data }">
                     <div class="flex flex-wrap gap-2">
@@ -207,7 +247,6 @@ onMounted(() => {
                 </template>
             </Column>
         </DataTable>
-
         <DynamicDialog />
     </div>
 </template>

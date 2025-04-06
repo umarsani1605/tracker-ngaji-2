@@ -7,13 +7,17 @@ export class SantriService {
         try {
             // Buat query string dari filter
             const params = new URLSearchParams();
+
             if (filters.gender) params.append('gender', filters.gender);
             if (filters.assigned !== undefined) params.append('assigned', filters.assigned);
             if (filters.role) params.append('role', filters.role);
 
             const response = await api.get(`/santri${params.toString() ? `?${params.toString()}` : ''}`);
+
             const santriStore = useSantriStore();
+
             santriStore.setAllData(response.data.data);
+
             return response.data;
         } catch (error) {
             console.error('Service Error: Gagal mengambil data santri:', error);
